@@ -27,53 +27,57 @@ Many rumor detection models have been proposed to automatically detect the rumor
             |_model_detector.py -> for supporting model.py
             |_model_decoder.py -> for supporting model.py
             |_predictor.py -> for decoding form generator
-      |_others\ -> define loss, logging info
       |_data\ -> for spliting 5-fold and building datagraph
-      |_eval\ -> for 
+      |_eval\ -> define evaluation metric (Recall, Precision and F-score of each class)
+      |_others\ -> define loss, logging info
 
 |_dataset\
       |_Pheme\
       |_twitter15\
       |_twitter16\
 ```
-### Train from scratch
+### How to run the code
 
 #### Three-stage training
+The testing results will come out while trianing the models.
 ```
 python main.py \
   -train_detector \
   -train_adv \
   -fold '0,1,2,3,4' \
   -dataset_dir '../dataset/Pheme' \
-  -batch_size 48 \
   -savepath '../results/Pheme' \
+  -batch_size 48 \
   -filter True \
   -train_epoch 40 \
   -log_tensorboard \
   -warmup_steps 100 \
 ```
+
 #### Only train detector
+The testing results will come out while trianing the models.
 ```
 python main.py \
   -train_detector \
   -fold '0,1,2,3,4' \
   -dataset_dir '../dataset/Pheme' \
-  -batch_size 48 \
   -savepath '../results/Pheme' \
   -filter True \
+  -batch_size 48 \
   -train_epoch 40 \
   -log_tensorboard \
   -warmup_steps 100 \
 ```
+
 #### Evaluate detector
 ```
 python main.py \
   -test_detector \
   -fold '0,1,2,3,4' \
   -dataset_dir '../dataset/Pheme' \
-  -batch_size 48 \
   -savepath '../results/Pheme' \
   -filter True \
+  -batch_size 48 \
   -train_epoch 40 \
   -log_tensorboard \
   -warmup_steps 100 \
@@ -85,9 +89,9 @@ python main.py \
   -test_gen \
   -fold '0,1,2,3,4' \
   -dataset_dir '../dataset/Pheme' \
-  -batch_size 48 \
   -savepath '../results/Pheme' \
   -filter True \
+  -batch_size 48 \
   -train_epoch 40 \
   -log_tensorboard \
   -warmup_steps 100 \
@@ -97,23 +101,44 @@ python main.py \
 ### Other experiments in paper
 
 #### early rumor detection
+Run the model testing under different data time stamp.
 ```
 python main.py \
   -early '0,6,12,18,24,30,36,42,48,54,60,120' \
   -fold '0,1,2,3,4' \
   -dataset_dir '../dataset/twitter15' \
-  -batch_size 48 \
   -savepath '../results/twitter15/early_detection' \
   -filter True \
+  -batch_size 48 \
+```
+```
+python main.py \
+  -early '0,6,12,18,24,30,36,42,48,54,60,120' \
+  -fold '0,1,2,3,4' \
+  -dataset_dir '../dataset/twitter16' \
+  -savepath '../results/twitter16/early_detection' \
+  -filter True \
+  -batch_size 48 \
 ```
 ```
 python main.py \
  -early '0,60,120,240,480,720,1440,2880' \
  -fold '0,1,2,3,4' \
  -dataset_dir '../dataset/Pheme' \
- -batch_size 48 \
  -savepath '../results/Pheme/early_detection' \
  -filter True \
- -visible_gpu 0 \
+ -batch_size 48 \
  ```
 #### data scarcity test
+Train the models under different quantities of data, ranging from 5% to100%, and evaluate them on the same testing set.
+```
+python main.py \
+  -train_detector \
+  -quat '5,10,25,50,75,100' \
+  -fold '0,1,2,3,4' \
+  -dataset_dir '../dataset/Pheme' \
+  -savepath '../results/pheme/data_scarcity' \
+  -filter True \
+  -batch_size 48 \
+  -log_tensorboard \
+```
