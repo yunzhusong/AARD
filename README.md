@@ -3,7 +3,17 @@
 
 <img src="https://user-images.githubusercontent.com/45812808/118956880-96206000-b992-11eb-8c9a-9d5e865ff554.png" width="800"/>
 
-Codes for the paper: Adversary-Aware Rumor Detection \[[paper]()\]
+[[Paper]()][[Dataset](https://drive.google.com/drive/folders/16gTXrGsQx3hcr-_sSdxFnjfdFw0mPCTp?usp=sharing)]
+
+If you use any source code or dataset included in this repo, please cite this paper:
+```
+@inproceedings{song2021adversary,
+  title={Adversary-Aware Rumor Detection},
+  author={Song, Yun-Zhu and Chen, Yi-Syuan and Chang, Yi-Ting and Weng, Shao-Yu and Shuai, Hong-Han},
+  booktitle={ACL-IJCNLP: Findings},
+  year={2021}
+}
+```
 
 ## Introdiction
 Many rumor detection models have been proposed to automatically detect the rumors based on the contents and propagation path. However, most previous works are not aware of malicious attacks, e.g., framing. Therefore, we propose a novel rumor detection framework, Adversary-Aware Rumor Detection, to improve the vulnerability of detection models, including Weighted-Edge Transformer-Graph Network and Position-aware Adversarial Response Generator. To the best of our knowledge, this is the first work that can generate the adversarial response with the consideration of the response position. **Even without the adversarial learning process, our detection model (Weighted-Edge Transformer-Graph Network) is also a strong baseline for rumor detection task on Twitter15, Twitter16 and Pheme.**
@@ -14,6 +24,14 @@ Many rumor detection models have been proposed to automatically detect the rumor
 ## Getting started
 
 ### Requirements
+Detailed env is included in ```requirement.txt```
+
+### Dataset and Model Preparation
+
+1. We collect the user comments following Twitter's policy, and the processed dataset is available [here](https://drive.google.com/drive/folders/16gTXrGsQx3hcr-_sSdxFnjfdFw0mPCTp?usp=sharing). The dataset should be placed in ```./dataset/```
+2. To train the generator, we need the pretrained model, which can be downloaded [here](https://drive.google.com/file/d/19chy9NMNAIkvWfdoR7-nthg5z8Mu6KKB/view?usp=sharing)). The pretrained generation model should be placed in ```./results/pretrain/```
+
+The data preprocessing is followed [BiGAN](https://github.com/TianBian95/BiGCN). The raw datasets except the comments can be downloaded in [raw_pheme](https://figshare.com/articles/dataset/PHEME_dataset_of_rumours_and_non-rumours/4010619) provided by [Zubiagaet al., 2016](https://arxiv.org/abs/1610.07363) and [raw_twitter15_twitter16](https://www.dropbox.com/s/7ewzdrbelpmrnxu/rumdetect2017.zip?dl=0) provided by [Ma et al., 2017](https://www.aclweb.org/anthology/P17-1066/).
 
 ### Code structure
 ```
@@ -21,25 +39,29 @@ Many rumor detection models have been proposed to automatically detect the rumor
       |_run.sh  -> script to run the code
       |_main.py -> 
       |_models\
-            |_trainer_gen.py -> warpping different experiments
-            |_trainer.py -> model trainer
-            |_model.py -> main class for AARD model
+            |_trainer_gen.py    -> warpping different experiments
+            |_trainer.py        -> model trainer
+            |_model.py          -> main class for AARD model
             |_model_detector.py -> for supporting model.py
-            |_model_decoder.py -> for supporting model.py
-            |_predictor.py -> for decoding form generator
-      |_data\ -> for spliting 5-fold and building datagraph
-      |_eval\ -> define evaluation metric (Recall, Precision and F-score of each class)
+            |_model_decoder.py  -> for supporting model.py
+            |_predictor.py      -> for decoding form generator
+      |_data\   -> for spliting 5-fold and building datagraph
+      |_eval\   -> define evaluation metric (Recall, Precision and F-score of each class)
       |_others\ -> define loss, logging info
-
 |_dataset\
       |_Pheme\
+      |_Phemetextgraph\     -> can be automatically generated data/getgraph.py
       |_twitter15\
+      |_twitter15textgraph\ -> can be automatically generated data/getgraph.py
       |_twitter16\
+      |_twitter16textgraph\ -> can be automatically generated data/getgraph.py
+|_results\
+      |_pretrain\
+            |_XSUM_BertExtAbs\
 ```
 ### How to run the code
 
 #### Three-stage training
-The testing results will come out while trianing the models.
 ```
 python main.py \
   -train_detector \
@@ -49,13 +71,11 @@ python main.py \
   -savepath '../results/Pheme' \
   -batch_size 48 \
   -filter True \
-  -train_epoch 40 \
   -log_tensorboard \
   -warmup_steps 100 \
 ```
 
 #### Only train detector
-The testing results will come out while trianing the models.
 ```
 python main.py \
   -train_detector \
@@ -64,7 +84,6 @@ python main.py \
   -savepath '../results/Pheme' \
   -filter True \
   -batch_size 48 \
-  -train_epoch 40 \
   -log_tensorboard \
   -warmup_steps 100 \
 ```
@@ -78,7 +97,6 @@ python main.py \
   -savepath '../results/Pheme' \
   -filter True \
   -batch_size 48 \
-  -train_epoch 40 \
   -log_tensorboard \
   -warmup_steps 100 \
 ```
@@ -92,15 +110,13 @@ python main.py \
   -savepath '../results/Pheme' \
   -filter True \
   -batch_size 48 \
-  -train_epoch 40 \
   -log_tensorboard \
   -warmup_steps 100 \
 ```
 
-
 ### Other experiments in paper
 
-#### early rumor detection
+#### Early rumor detection (only testing)
 Run the model testing under different data time stamp.
 ```
 python main.py \
@@ -129,7 +145,8 @@ python main.py \
  -filter True \
  -batch_size 48 \
  ```
-#### data scarcity test
+ 
+#### Data scarcity experiment (need training)
 Train the models under different quantities of data, ranging from 5% to100%, and evaluate them on the same testing set.
 ```
 python main.py \
