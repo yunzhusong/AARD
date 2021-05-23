@@ -1,0 +1,16 @@
+/dataset/
+/raw_dataset/
+/results/
+/src/wandb/
+/src/temp/
+/src/others/__pycache__/
+/src/models/__pycache__/
+/src/data/__pycache__/
+/src/eval/__pycache__/
+/src/models/__pycache__/
+/src/run.sh
+/src_filter/
+/src_legend/
+/src/unorgnize/
+*.pyc
+*.pyo
