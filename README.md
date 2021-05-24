@@ -37,7 +37,7 @@ The data preprocessing is followed [BiGAN](https://github.com/TianBian95/BiGCN).
 ```
 |_src\
       |_run.sh  -> script to run the code
-      |_main.py -> 
+      |_main.py
       |_models\
             |_trainer_gen.py    -> warpping different experiments
             |_trainer.py        -> model trainer
