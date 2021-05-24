@@ -146,7 +146,7 @@ python main.py \
  -batch_size 48 \
  ```
  
-#### Data scarcity experiment (need training)
+#### Data scarcity experiment (require training)
 Train the models under different quantities of data, ranging from 5% to100%, and evaluate them on the same testing set.
 ```
 python main.py \
