@@ -1,8 +1,9 @@
+import random
 import os, sys
 sys.path.append(os.getcwd())
 import argparse
 import pdb
-import wandb
+#import wandb
 import pprint
 from torch_geometric.data import DataLoader
 from shutil import copyfile
@@ -21,6 +22,8 @@ import shutil
 import time
 
 from others.logging import init_logger, logger
+
+from for_demo.build_new_data import build_from_new_input
 
 def str2bool(v):
     if v.lower() in ('yes', 'true', 't', 'y', '1'):
@@ -42,6 +45,7 @@ def logged_args(args):
 def parse_args():
     parser = argparse.ArgumentParser(description='For Pheme dataset')
     parser.add_argument('-debug', action='store_true')
+    parser.add_argument('-for_demo', action='store_true')
     parser.add_argument('-savepath', type=str, help='where to save the attacker', default='../results/debug')
     parser.add_argument('-textgraph_dir', type=str, help='whether to specific text graph', default=None)
     parser.add_argument('-cache_path', type=str, help='where to save the condition files')
@@ -61,6 +65,7 @@ def parse_args():
     parser.add_argument("-label_num", type=int, default=2)
 
     parser.add_argument("-train_gen_from", default='../results/pretrain/XSUM_BertExtAbs/')
+    parser.add_argument("-inference_file", default=None, type=str)
     # Architecture setting
     parser.add_argument("-fold", default='', type=str,)
     #parser.add_argument("-fold", default=0, type=int, help='specify the data fold')
@@ -190,12 +195,11 @@ if __name__=='__main__':
     torch.cuda.set_device('cuda:{}'.format(args.visible_gpus))
     torch.cuda.manual_seed(args.seed)
 
-   
+    # The running experiments   
     iter = 0 
     folds = args.fold.split(',')
     quats = args.quat.split(',')
     savepath = args.savepath
-
 
     for fold in folds:
 
@@ -210,35 +214,49 @@ if __name__=='__main__':
             # Initial logger
             init_logger(args.log_file)
             logger.info(str(args))
-
             if quat == '100':
                 quat = ''
 
-            x_test, x_train = loadfoldlist(args.dataset_name, fold, quat)
-            num_train_tree = len(x_train)
-            x_val = x_test
-            tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+            if args.inference_file is None:
+                x_test, x_train = loadfoldlist(args.dataset_name, fold, quat)
+                x_val = x_test
+                text_df, label_df = None, None
+            else:
+                # Whether to use the on-time inference file
+                logger.info("We inference the model with new input line")
+                text_df, label_df = build_from_new_input(args.inference_file, args.dataset_dir)
+                x_test = label_df[1].tolist()
+                x_test = [str(i) for i in x_test] 
+                x_train = x_test
+                x_val = x_test
 
             ###
             ### Train Detector
             ###
-            # Not drop the edges when training generator
+            # Don't drop the edges when training generator
 
             # Build model and train model
+            tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+
             trainer = RumorTrainer(args, args.savepath, tokenizer, iter, fold, wandb)
 
+            if args.for_demo:
+                treeDic = buildgraph(args.dataset_name, 'txt_emb', args.label_num, texts=text_df, labels=label_df)
+                test_list = loadBiTextData(args.dataset_name+'text', treeDic, x_test, tokenizer, data_path=None)
+                test_loader = DataLoader(test_list, batch_size=1, shuffle=False, num_workers=5)
+                trainer.inference_for_demo(test_loader, run_gen=args.test_gen or args.test_adv, level=1 if args.inference_file else 3)
 
 
-            if args.early:
+            elif args.early:
                 """ For early test, only change the graph data (different time interval)""" 
                 portions = args.early.split(',')
                 for port in portions:
 
                     # Build textgraph data for early detection
-                    buildgraph(args.dataset_name, 'txt_emb', args.label_num, '{}.'.format(port))
+                    treeDic = buildgraph(args.dataset_name, 'txt_emb', args.label_num, port+'.' )
 
                     # Load data.TD_RvNN.vol_5000.txt
-                    treeDic = loadTree(args.dataset_name, port)
+                    #treeDic = loadTree(args.dataset_name, port)
 
                     # Load textgraph
                     test_list = loadBiTextData(args.dataset_name+'text',
@@ -251,11 +269,12 @@ if __name__=='__main__':
                 else:
                     data_path = None
 
+
                 # Build textgraph data
-                buildgraph(args.dataset_name, 'txt_emb', args.label_num)
+                treeDic = buildgraph(args.dataset_name, 'txt_emb', args.label_num, texts=text_df, labels=label_df)
 
                 # Load data.TD_RvNN.vol_5000.txt
-                treeDic = loadTree(args.dataset_name)
+                #treeDic = loadTree(args.dataset_name)
 
                 # Load textgraph
                 train_list = loadBiTextData(args.dataset_name+'text', treeDic, x_train, tokenizer, 0.2, 0.2)
@@ -263,13 +282,12 @@ if __name__=='__main__':
                 test_list = loadBiTextData(args.dataset_name+'text', treeDic, x_test, tokenizer, data_path=data_path)
 
                 train_loader = DataLoader(train_list, batch_size=1, shuffle=False, num_workers=5)
-                val_loader = DataLoader(val_list, batch_size=1, shuffle=True, num_workers=5)
-                test_loader = DataLoader(test_list, batch_size=1, shuffle=True, num_workers=5)
+                val_loader = DataLoader(val_list, batch_size=1, shuffle=False, num_workers=5)
+                test_loader = DataLoader(test_list, batch_size=1, shuffle=False, num_workers=5)
 
             # Record train, val, test list
             #logger.info('Tree number: train:{}, val:{}, test:{}'.format(
             #    len(train_list), len(val_list), len(test_list)))
-
 
             if args.run_exp:
                 trainer.exp(test_loader, exp_pos=True)
@@ -278,16 +296,7 @@ if __name__=='__main__':
                 trainer.forward(train_loader, val_loader, test_loader)
 
             elif args.test_detector:
-                '''
-                if args.early:
-                    intervals = args.early.split(',')
-                    for interval in intervals:
-                        test_list = loadBiTextData(args.dataset_name+'text.'+interval, treeDic, x_test, tokenizer)
-                        test_loader = DataLoader(test_list, batch_size=1, shuffle=False, num_workers=5)
-                        trainer.test_detector(test_loader, run_gen=args.test_gen, portion=interval)
-                else:
-                '''
-                trainer.test_detector(test_loader, run_gen=args.test_gen)
+                trainer.test_detector(test_loader, run_gen=args.test_gen or args.test_adv)
 
             if args.train_adv:
                 args.train_gen = True

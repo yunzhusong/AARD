@@ -7,8 +7,8 @@ import torch.nn.functional as F
 from torch.nn import BatchNorm1d 
 torch.multiprocessing.set_sharing_strategy('file_system')
 from torchtext import data
-from torchtext.data import Field
-from torchtext.data import Dataset, Example, Iterator, Batch
+from torchtext.legacy.data import Field
+from torchtext.legacy.data import Dataset, Example, Iterator, Batch
 from torch.distributions.normal import Normal
 from collections import defaultdict
 from others.logging import logger

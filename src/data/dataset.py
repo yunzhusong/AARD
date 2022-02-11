@@ -5,7 +5,7 @@ import torch
 import random
 from torch.utils.data import Dataset
 from torch_geometric.data import Data
-from torchtext.data import Field, TabularDataset, BucketIterator
+from torchtext.legacy.data import Field, TabularDataset, BucketIterator
 from torchtext.vocab import GloVe
 
 import re

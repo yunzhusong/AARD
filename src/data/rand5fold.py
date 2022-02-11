@@ -10,6 +10,7 @@ cwd='../'
 ## For fix 5 folds ##
 #####################
 def loadfoldlist(obj, fold, quat=''):
+
     if 'Pheme' in obj or 'twitter' in obj:
         if quat != '':
             trainLabel = os.path.join(cwd,'dataset/{}/split_{}/train.label.{}.txt'.format(obj, fold, quat))

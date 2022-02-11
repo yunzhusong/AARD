@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import pdb
 import re
 import json
-from torchtext.data import Field, TabularDataset, BucketIterator
+from torchtext.legacy.data import Field, TabularDataset, BucketIterator
 from torchtext.vocab import GloVe
 import spacy
 nlp = spacy.load("en_core_web_sm", disable = ["parser", "tagger", "ner"])

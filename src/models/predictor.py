@@ -3,10 +3,11 @@
 from __future__ import print_function
 import codecs
 import os, pdb
+from os.path import join as pjoin
 import math
 import numpy as np
 from tqdm import tqdm
-
+import pandas as pd
 import torch
 from torch.distributions.normal import Normal
 from tensorboardX import SummaryWriter
@@ -21,7 +22,6 @@ def build_predictor(args, model, tokenizer, symbols, logger=None):
 
     translator = Translator(args, model, tokenizer, symbols, global_scorer=scorer, logger=logger)
     return translator
-
 
 class Translator(object):
     """
@@ -80,6 +80,7 @@ class Translator(object):
         self.tensorboard_writer = None
 
         #os.makedirs(self.args.savepath+'/gen_result', exist_ok=True)
+        os.makedirs(self.args.savepath+'/gen_result', exist_ok=True)
 
         if self.beam_trace:
             self.beam_accum = {
@@ -110,14 +111,18 @@ class Translator(object):
         preds = translation_batch['predictions']
         pred_score = translation_batch['scores']
         #gold_score = translation_batch['gold_score']
+        ids = batch.id.reshape(-1)
+        labels = batch.label.reshape(-1)
         src = batch.src
+        raw_src = self.vocab.batch_decode(src, skip_special_tokens=True)
         if have_gold:
             tgt_str = batch.tgt_str
 
         translations = []
         for b in range(batch_size):
-            pred_sents = self.vocab.convert_ids_to_tokens([int(n) for n in preds[b][0]])
-            pred_sents = ' '.join(pred_sents).replace(' ##','')
+            #pred_sents = self.vocab.convert_ids_to_tokens([int(n) for n in preds[b][0]])
+            #pred_sents = ' '.join(pred_sents).replace(' ##','')
+            pred_sents = self.vocab.decode(preds[b][0], skip_special_tokens=True)
             if have_gold:
                 gold_sent = ' '.join(tgt_str[b].split())
             else:
@@ -127,9 +132,9 @@ class Translator(object):
             #                           attn[b], pred_score[b], gold_sent,
             #                           gold_score[b])
             # src = self.spm.DecodeIds([int(t) for t in translation_batch['batch'].src[0][5] if int(t) != len(self.spm)])
-            raw_src = [self.vocab.ids_to_tokens[int(t)] for t in src[b]][:500]
-            raw_src = ' '.join(raw_src).replace(' ##', '')
-            translation = (pred_sents, gold_sent, raw_src)
+            #raw_src = [self.vocab.ids_to_tokens[int(t)] for t in src[b]][:500]
+            #raw_src = ' '.join(raw_src).replace(' ##', '')
+            translation = (pred_sents, gold_sent, raw_src[b], ids[b], labels[b])
             translations.append(translation)
 
         return translations
@@ -159,7 +164,7 @@ class Translator(object):
 
                 # Load the textgraph data
                 id_ = ids[b].item()
-                data=np.load(os.path.join(graph_path, str(id_)+".npz"), allow_pickle=True)
+                data=np.load(pjoin(graph_path, str(id_)+".npz"), allow_pickle=True)
 
                 # Create new edge according to new node (predicted text)
                 append_posit = preds[b][0].max(0)[1].item()
@@ -173,26 +178,25 @@ class Translator(object):
                 rootindex = data['rootindex']
                 edgeindex = np.append(data['edgeindex'], new_edge, axis=1)
 
-                np.savez(os.path.join(new_graph_path, str(id_)+'.npz'),
+                np.savez(pjoin(new_graph_path, str(id_)+'.npz'),
                         x=x, root=root, edgeindex=edgeindex, rootindex=rootindex, y=y)
 
         Parallel(n_jobs=1, backend='threading')(delayed(_build)(batch) for batch in tqdm(data_iter))
 
-
-    def translate(self, data_iter, epoch, cal_rouge=False, save=True, save_by_id=False, have_gold=False):
+    def translate(self, data_iter, epoch, cal_rouge=False, save=True, save_by_id=False, have_gold=False, info=""):
 
         self.model.eval()
         if save:
-            base_path = os.path.join(self.args.savepath, epoch)
+            base_path = pjoin(self.args.savepath, epoch)
             os.makedirs(base_path, exist_ok=True)
-            out_path = os.path.join(base_path, 'out.txt')
+            out_path = pjoin(base_path, 'out.txt')
             self.out_file = codecs.open(out_path, 'w', 'utf-8')
 
-            can_path = os.path.join(base_path, 'can.txt')
+            can_path = pjoin(base_path, 'can.txt')
             self.can_out_file = codecs.open(can_path, 'w', 'utf-8')
 
             if have_gold:
-                gold_path = os.path.join(base_path, 'gold.txt')
+                gold_path = pjoin(base_path, 'gold.txt')
                 self.gold_out_file = codecs.open(gold_path, 'w', 'utf-8')
 
             #ididx_path = self.args.savepath + '/cond.txt'
@@ -216,7 +220,7 @@ class Translator(object):
             translations = self.from_batch(batch_data, have_gold)
 
             for i, trans in enumerate(translations):
-                pred, gold, src = trans
+                pred, gold, src, id_, label = trans
                 pred_str = pred.replace('[unused0]', '').replace('[unused3]', '').replace('[PAD]', '').replace('[unused1]', '').replace(r' +', ' ').replace(' [unused2] ', '<q>').replace('[unused2]', '').strip()
                 if have_gold:
                     gold_str = gold.strip()
@@ -243,9 +247,9 @@ class Translator(object):
                 #self.raw_can_out_file.write(' '.join(pred).strip() + '\n')
                 #self.raw_gold_out_file.write(' '.join(gold).strip() + '\n')
                 if save_by_id:
-                    with open(os.path.join(self.args.savepath,'temp/{}.txt'.format(id_)), 'a') as f:
+                    with open(pjoin(self.args.savepath,'temp/{}.txt'.format(id_)), 'a') as f:
                         f.write('{}\t{}\t{}\n'.format(parent_idx, self_idx, pred_str))
-                    #with open(os.path.join(self.args.savepath,'temp_gold/{}.txt'.format(id_)), 'a') as f:
+                    #with open(pjoin(self.args.savepath,'temp_gold/{}.txt'.format(id_)), 'a') as f:
                     #    f.write('{}\t{}\t{}\n'.format(parent_idx, self_idx, gold_str))
 
                 if save:
@@ -260,6 +264,17 @@ class Translator(object):
                         self.out_file.write(
                             'Predict:\t{}\nSource:\t{}\n'.format(pred_str, src.strip())
                         )
+                        
+
+                        ori_df = pd.read_csv(pjoin(self.args.savepath, "gen_result/{}.txt".format(id_)), delimiter="\t")
+                        ori_df.loc[ori_df["exp"]==info, "generated"] = pred_str
+                        ori_df.to_csv(pjoin(self.args.savepath, "gen_result/{}.txt".format(id_)), index=False, sep="\t")
+
+                        #with open(os.path.join(self.args.savepath, "gen_result/{}.txt".format(id_)), 'a') as f:
+                        #    f.write("[Generated Response]:\t{}\n".format(pred_str))
+                        #    if have_gold:
+                        #        f.write("[Reference Response]:\t{}\n".format(gold_str))
+
                     #self.src_out_file.write(src.strip() + '\n')
                     #conds = torch.load(self.args.cache_path+'/{}.pt'.format(id_))
                     #cond = conds[int(self_idx),0].item()
@@ -273,6 +288,7 @@ class Translator(object):
                     self.gold_out_file.flush()
                 #self.src_out_file.flush()
                 #self.ididx_out_file.flush()
+
         Parallel(n_jobs=1, backend='threading')(delayed(_translate)(batch) for batch in tqdm(data_iter))
 
 
@@ -324,7 +340,7 @@ class Translator(object):
            batch (:obj:`Batch`): a batch from a dataset object
            data (:obj:`Dataset`): the dataset object
            fast (bool): enables fast beam search (may not support all features)
-
+ 
         Todo:
            Shouldn't need the original dataset.
         """
@@ -591,7 +607,6 @@ class Translator(object):
                     dec_states.map_batch_fn(
                         lambda state, dim: state.index_select(dim, select_indices))
                     batch_index = batch_index.index_select(0, non_finished)
-
 
 class Translation(object):
     """

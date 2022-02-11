@@ -235,7 +235,7 @@ class RumorDetector(nn.Module):
         Args:
             tgt (`torch.Tensor` of shape :obj:(batch_size, seq_length))
         """
-        gen = (self.args.train_gen or self.args.test_gen) and gen_flag
+        gen = (self.args.train_gen or self.args.test_gen or self.args.test_adv) and gen_flag
         if gen and tgt is not None:
             """ for training generator and detector"""
             # encode

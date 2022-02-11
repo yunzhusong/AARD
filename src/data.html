@@ -1,0 +1,108 @@
+<html>
+<head>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.16.1/vis.css" type="text/css" />
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.16.1/vis-network.min.js"> </script>
+<center>
+<h1></h1>
+</center>
+
+<!-- <link rel="stylesheet" href="../node_modules/vis/dist/vis.min.css" type="text/css" />
+<script type="text/javascript" src="../node_modules/vis/dist/vis.js"> </script>-->
+
+<style type="text/css">
+
+        #mynetwork {
+            width: 440px;
+            height: 470px;
+            background-color: #262730;
+            border: 1px solid lightgray;
+            position: relative;
+            float: left;
+        }
+
+        
+
+        
+
+        
+</style>
+
+</head>
+
+<body>
+<div id = "mynetwork"></div>
+
+
+<script type="text/javascript">
+
+    // initialize global variables.
+    var edges;
+    var nodes;
+    var network; 
+    var container;
+    var options, data;
+
+    
+    // This method is responsible for drawing the graph, returns the drawn network
+    function drawGraph() {
+        var container = document.getElementById('mynetwork');
+        
+        
+
+        // parsing and collecting nodes and edges from the python
+        nodes = new vis.DataSet([{"color": "#023e8a", "font": {"color": "white"}, "id": 0, "label": "Source Post", "shape": "dot", "size": 20, "title": "\u2606 \u2606 craigslist ad allegedly posted by bernie supporters offered $ 15 to protest at trump\u0027s rally in wisconsin . trump already creating jobs ! \u003cend\u003e"}, {"color": "#0096c7", "font": {"color": "white"}, "id": 1, "label": 1, "shape": "dot", "size": 20, "title": "@GeneMcVay $ URL $ \u003cend\u003e"}, {"color": "#0096c7", "font": {"color": "white"}, "id": 2, "label": 2, "shape": "dot", "size": 20, "title": "@GeneMcVay creating jobs and Bernie pay for it . Ha . TRUMP POTUS \u003cend\u003e"}, {"color": "#0096c7", "font": {"color": "white"}, "id": 3, "label": 3, "shape": "dot", "size": 20, "title": "@GeneMcVay Afterwards they are welcome to vote Trump . \u003cend\u003e"}, {"color": "#0096c7", "font": {"color": "white"}, "id": 4, "label": 4, "shape": "dot", "size": 20, "title": "@GeneMcVay love it ... don\u0027t look like they know what work is . There going to expect Bernie to give hand outs all their life . \u003cend\u003e"}, {"color": "#0096c7", "font": {"color": "white"}, "id": 5, "label": 5, "shape": "dot", "size": 20, "title": "@GeneMcVay Can\u0027t wait for those 45 % increases at Walmart though ! \u003cend\u003e"}, {"color": "#0096c7", "font": {"color": "white"}, "id": 6, "label": 6, "shape": "dot", "size": 20, "title": "@GeneMcVay These losers aren\u0027t worth even $ 5.00 per hour . Dummies ! \u003cend\u003e"}, {"color": "#0096c7", "font": {"color": "white"}, "id": 7, "label": 7, "shape": "dot", "size": 20, "title": "@GeneMcVay anything for a buck . \u003cend\u003e"}, {"color": "#0096c7", "font": {"color": "white"}, "id": 8, "label": 8, "shape": "dot", "size": 20, "title": "@GeneMcVay @IrascibleTwerp Obvious fake . Bernie only pays $ 12 / hour . \u003cend\u003e"}]);
+        edges = new vis.DataSet([{"color": "#caf0f8", "from": 0, "to": 1, "weight": 1}, {"color": "#caf0f8", "from": 0, "to": 2, "weight": 1}, {"color": "#caf0f8", "from": 0, "to": 3, "weight": 1}, {"color": "#caf0f8", "from": 0, "to": 4, "weight": 1}, {"color": "#caf0f8", "from": 0, "to": 5, "weight": 1}, {"color": "#caf0f8", "from": 0, "to": 6, "weight": 1}, {"color": "#caf0f8", "from": 0, "to": 7, "weight": 1}, {"color": "#caf0f8", "from": 0, "to": 8, "weight": 1}]);
+
+        // adding nodes and edges to the graph
+        data = {nodes: nodes, edges: edges};
+
+        var options = {
+    "configure": {
+        "enabled": false
+    },
+    "edges": {
+        "color": {
+            "inherit": true
+        },
+        "smooth": {
+            "enabled": false,
+            "type": "continuous"
+        }
+    },
+    "interaction": {
+        "dragNodes": true,
+        "hideEdgesOnDrag": false,
+        "hideNodesOnDrag": false
+    },
+    "physics": {
+        "enabled": true,
+        "stabilization": {
+            "enabled": true,
+            "fit": true,
+            "iterations": 1000,
+            "onlyDynamicEdges": false,
+            "updateInterval": 50
+        }
+    }
+};
+        
+        
+
+        
+
+        network = new vis.Network(container, data, options);
+	 
+        
+
+
+        
+
+        return network;
+
+    }
+
+    drawGraph();
+
+</script>
+</body>
+</html>

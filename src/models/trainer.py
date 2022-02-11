@@ -10,6 +10,8 @@ from others import distributed
 from others.reporter import ReportMgr, Statistics
 from others.logging import logger
 from others.utils import test_rouge, rouge_results_to_str
+from collections import defaultdict
+import pandas as pd
 
 from tqdm import tqdm
 
@@ -96,12 +98,12 @@ class Trainer(object):
         self.n_gpu = n_gpu
         self.gpu_rank = gpu_rank
         self.report_manager = report_manager # for writing result to log file
+        os.makedirs(self.args.savepath+'/gen_result', exist_ok=True)
 
         self.loss = loss
         self.epoch = 0
 
         assert grad_accum_count > 0
-
 
     def train(self, train_iter, train_steps, message=''):
         """
@@ -208,7 +210,7 @@ class Trainer(object):
 
             return stats
 
-    def testing(self, test_iter, step=0, gen_flag=False, tokenizer=None):
+    def testing(self, test_iter, step=0, gen_flag=False, tokenizer=None, info="", write_type=None, output_wrong_pred=False):
         """ Validate model.
             valid_iter: validate data iterator
         Returns:
@@ -217,10 +219,7 @@ class Trainer(object):
         # Set model in validating mode.
         self.model.eval()
         stats = Statistics()
-
-        from collections import defaultdict
-        prediction_dict = defaultdict(list)
-        label_dict = defaultdict(list)
+        wrong_predictions = []
 
         with torch.no_grad():
             for batch in test_iter:
@@ -232,31 +231,40 @@ class Trainer(object):
 
                 outputs = self.model(src, segs, mask_src, edges, node_batch, gen_flag=gen_flag)
                 batch_stats, loss = self.loss.monolithic_compute_loss(batch, outputs, self.epoch)
+                stats.update(batch_stats)
 
                 # write out prediction on different time interval
                 if tokenizer:
                     predictions = outputs[0].max(axis=1)[1]
                     
+                    sents = tokenizer.batch_decode(src, skip_special_tokens=True)
                     for idx, id_ in enumerate(batch.id):
                         label = batch.label[idx].item()
-                        prediction = predictions[idx]
+                        prediction = predictions[idx].item()
                         num_node = len(node_batch[idx])
-                        sent = ' '.join(tokenizer.convert_ids_to_tokens(src[idx][src[idx]!=0])).replace(' ##', '')
-                        with open(pjoin(self.args.savepath, 'test_prediction.csv'), 'a') as f:
-                            f.write('{},{},{},{}\n'.format(id_[0].item(), num_node, prediction, sent))
-                        prediction_dict[id_[0].item()].append(prediction.item())
-                        label_dict[id_[0].item()] = label
+                        id_ = id_[0].item()
+                        
+                        out_dict = [[info, prediction, label, "", sents[idx].replace("\t", " ")]]
+                        columns = ["exp", "predicted_label", "ground-truth", "generated", "source"]
+                        out_df = pd.DataFrame(out_dict, columns=columns)
 
-                stats.update(batch_stats)
-            if tokenizer:
-                with open(pjoin(self.args.savepath, 'alter_id_list.csv'), 'w') as f:
-                    for id_, value in prediction_dict.items():
-                        if len(set(value)) != 1:
-                            f.write('{},{},{}\n'.format(id_, label_dict[id_], value))
+                        if write_type:
+                            if write_type=="a" and os.path.exists(model_path):
+                                model_path = pjoin(self.args.savepath, "gen_result/{}.txt".format(id_))
+                                ori_df = pd.read_csv(model_path, delimiter="\t")
+                                out_df = ori_df.append(out_df)
+
+                            out_df.to_csv(model_path, index=False, sep="\t")
+
+                        if label!=prediction:
+                            wrong_predictions.append(id_)
 
             self._report_step(0, step, test_stats=stats)
 
-            return stats
+            if output_wrong_pred:
+                return stats, wrong_predictions
+            else:
+                return stats
 
     def _gradient_accumulation(self, true_batchs, normalization, total_stats,
                                report_stats):
@@ -313,7 +321,6 @@ class Trainer(object):
                     grads, float(1))
             for o in self.optims:
                 o.step()
-
 
     def _save(self, step):
         real_model = self.model
@@ -445,7 +452,6 @@ class Trainer(object):
             print('{:.4f}'.format(error))
             with open(pjoin(self.args.savepath, 'exp_pos.txt'), 'a') as f:
                 f.write('[test-pos],{:.4f},{:.4f},{:.4f}'.format(max_diff, diff, error))
-
 
     # NOTE: No Use
     def test(self, test_iter, step, cal_lead=False, cal_oracle=False):
