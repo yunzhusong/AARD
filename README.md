@@ -3,7 +3,7 @@
 
 <img src="https://user-images.githubusercontent.com/45812808/118956880-96206000-b992-11eb-8c9a-9d5e865ff554.png" width="800"/>
 
-[[Paper]()][[Dataset](https://drive.google.com/drive/folders/16gTXrGsQx3hcr-_sSdxFnjfdFw0mPCTp?usp=sharing)]
+[[Paper](https://aclanthology.org/2021.findings-acl.118.pdf)][[Dataset](https://drive.google.com/drive/folders/16gTXrGsQx3hcr-_sSdxFnjfdFw0mPCTp?usp=sharing)]
 
 If you use any source code or dataset included in this repo, please cite this paper:
 ```
