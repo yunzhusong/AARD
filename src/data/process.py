@@ -1,7 +1,6 @@
 import os
 from data.dataset import GraphDataset,BiGraphDataset,UdGraphDataset,BiGraphTextDataset
 import pdb
-#cwd=os.getcwd()
 cwd='../'
 
 #################

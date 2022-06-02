@@ -1,18 +1,21 @@
 """ For support load data functions in data/process.py
 """
 import os
+import re
 import pdb
-import numpy as np
+import spacy
 import torch
 import random
+import numpy as np
+from data.utils import construct_depth_vector, zero
 from torch.utils.data import Dataset
 from torch_geometric.data import Data
-from torchtext.data import Field, TabularDataset, BucketIterator
 from torchtext.vocab import GloVe
+try:
+    from torchtext.legacy.data import Field, TabularDataset, BucketIterator
+except:
+    from torchtext.data import Field, TabularDataset, BucketIterator
 
-import re
-from data.utils import construct_depth_vector, zero
-import spacy
 nlp = spacy.load("en_core_web_sm", disable = ["parser", "tagger", "ner"])
 
 def collate_fn(data):

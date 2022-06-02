@@ -11,7 +11,11 @@ import torch.optim as optim
 import numpy as np
 from eval.evaluate import *
 from data.loader import CommentDataset, TreeDataset, Iterator
-from torchtext.data import BucketIterator
+try:
+    from torchtext.legacy.data import BucketIterator
+except:
+    from torchtext.data import BucketIterator
+
 
 from models.model import RumorDetector, build_optim_bert, build_optim_dec, build_optim
 from models.trainer import build_trainer
@@ -21,7 +25,6 @@ from others.loss import abs_loss
 from others.logging import logger
 
 from tqdm import tqdm
-import pdb
 from joblib import Parallel, delayed
 import random
 
@@ -133,9 +136,6 @@ class RumorTrainer(object):
             else:
                 stop_count += 1
 
-            #if stop_count==5:
-            #    break
-
     def train_adv(self, train_loader, val_loader, test_loader):
         """ Adversarially training process"""
         ## Step1. Train detector and generator
@@ -192,9 +192,9 @@ class RumorTrainer(object):
                 test_stats.write_results(os.path.join(self.args.savepath, 'result_test.csv'), '{}-att'.format(epoch), self.args.label_num)
                 #Save best model
                 if test_stats.det_acc() < lowest_acc:
-                    logger('Save Adv model at epoch {}'.format(epoch))
+                    logger.info('Save Adv model at epoch {}'.format(epoch))
                     lowest_acc = test_stats.det_acc()
-                    #trainer._save('best_adv')
+                    trainer._save('best_adv')
                     stop_count = 0
                 else:
                     stop_count += 1
@@ -265,19 +265,16 @@ class RumorTrainer(object):
         test = TreeDataset(self.args, loader, self.dataname, self.device, self.tokenizer)
         #test = CommentDataset(self.args, loader, self.dataname, self.device, self.tokenizer)
 
-        data_iter = Iterator(test, train=False, device=self.device, batch_size=self.bs,
+        data_iter = Iterator(test, train=False, device=self.device, 
+                             batch_size=len(test) if len(test)<self.bs else self.bs,
                              sort_key=lambda x: len(x.src),
                              sort_within_batch=False)
-
-        if self.args.test_adv:
-            best_model = os.path.join(self.args.savepath, 'best_adv_model.pt')
-        else:
-            print('test best model')
-            best_model = os.path.join(self.args.savepath, 'best_model.pt')
-
         # Define trainer
         train_loss = abs_loss(self.args.label_num, self.maxepoch, self.device, train=False)
         trainer = build_trainer(self.args, self.model, self.optim, train_loss)
+
+        logger.info('Test on best model (stage-1)')
+        best_model = os.path.join(self.args.savepath, 'best_model.pt')
 
         if os.path.exists(best_model):
             try:
@@ -286,16 +283,30 @@ class RumorTrainer(object):
             except:
                 self.model.load_state_dict(torch.load(best_model, map_location=lambda storage, 
                                                   loc: storage)['model'], strict=False)
-                print('[Warning] The keys in state dict do not strictly match')
+                logger.info('[Warning] The keys in state dict do not strictly match')
 
-            test_stat = trainer.testing(data_iter, tokenizer=self.tokenizer)
+            test_stat = trainer.testing(data_iter, tokenizer=self.tokenizer, gen_flag=False, info="Without Generated Response >>", write_type="w")
             test_stat.write_results(os.path.join(self.args.savepath, 'result_test.csv'), 'test-'+portion, self.args.label_num)
         else:
             print(f"[Warning] {best_model} does not exist.")
 
-        if run_gen:
+        if self.args.test_adv:
+
+            logger.info('Test on adversarially-trained model (stage-2)')
+            best_model = os.path.join(self.args.savepath, 'best_adv_model.pt')
+            if os.path.exists(best_model):
+                try:
+                    self.model.load_state_dict(torch.load(best_model, map_location=lambda storage, 
+                                                      loc: storage)['model'])
+                except:
+                    self.model.load_state_dict(torch.load(best_model, map_location=lambda storage, 
+                                                      loc: storage)['model'], strict=False)
+                    logger.info('[Warning] The keys in state dict do not strictly match')
+
+            test_stat = trainer.testing(data_iter, tokenizer=self.tokenizer, gen_flag=True, info="\nWith Generated Response from {} >>".format(best_model.split("/")[-1]), write_type="a")
             predictor = build_predictor(self.args, self.model, self.tokenizer, self.symbols, logger)
             predictor.translate(data_iter, 'best', have_gold=False)
+
 
     def build_data(self, loader):
         """ Build polluted textgraph by adversarial trained generator"""
@@ -384,3 +395,95 @@ class RumorTrainer(object):
                     self.model.load_state_dict(torch.load(model_path, map_location=lambda storage, loc: storage)['model'], strict=False)
                     plottsne = PlotTSNE(self.args, self.model)
                     plottsne.plot(test_iter, str(epoch))
+
+    def inference_for_demo(self, loader, run_gen=False, portion='all', level=3):
+        """ Testing detector  """
+        test = TreeDataset(self.args, loader, self.dataname, self.device, self.tokenizer)
+
+        data_iter = Iterator(test, train=False, device=self.device, 
+                             batch_size=len(test) if len(test)<self.bs else self.bs,
+                             sort_key=lambda x: len(x.src),
+                             sort_within_batch=False)
+        # Define trainer
+        train_loss = abs_loss(self.args.label_num, self.maxepoch, self.device, train=False)
+        trainer = build_trainer(self.args, self.model, self.optim, train_loss)
+
+        if level == 1:
+            logger.info('Test on detection model (stage-1)')
+            best_model = os.path.join(self.args.savepath, 'best_model.pt')
+            ckpt = torch.load(best_model, map_location=lambda storage, loc: storage)['model']
+            try:
+                self.model.load_state_dict(ckpt)
+            except:
+                mismatch = self.model.load_state_dict(ckpt, strict=False)
+                print(mismatch)
+                logger.info('[Warning] The keys in state dict do not strictly match')
+
+            trainer.testing(data_iter, tokenizer=self.tokenizer, gen_flag=False, info="{}".format(best_model.split("/")[-1]), write_type="w")
+
+            logger.info('Test on final model (stage-3)')
+            best_model = os.path.join(self.args.savepath, 'best_final_model.pt')
+            ckpt = torch.load(best_model, map_location=lambda storage, loc: storage)['model']
+            try:
+                self.model.load_state_dict(ckpt)
+            except:
+                mismatch = self.model.load_state_dict(ckpt, strict=False)
+                print(mismatch)
+                logger.info('[Warning] The keys in state dict do not strictly match')
+
+            trainer.testing(data_iter, tokenizer=self.tokenizer, gen_flag=False, info="{}".format(best_model.split("/")[-1]), write_type="a")
+
+
+        if level >= 2:
+            logger.info('Test on adv model (stage-2)')
+            best_model = os.path.join(self.args.savepath, 'best_adv_model.pt')
+            ckpt = torch.load(best_model, map_location=lambda storage, loc: storage)['model']
+            try:
+                self.model.load_state_dict(ckpt)
+            except:
+                mismatch = self.model.load_state_dict(ckpt, strict=False)
+                print(mismatch)
+                logger.info('[Warning] The keys in state dict do not strictly match')
+
+            # Test without generated response
+            trainer.testing(data_iter, tokenizer=self.tokenizer, gen_flag=False, info="{}".format(best_model.split("/")[-1]), write_type="w")
+
+            # Test with generated response
+            _, wrongs_before = trainer.testing(data_iter, tokenizer=self.tokenizer, gen_flag=True, info="{} With Generated Response".format(best_model.split("/")[-1]), write_type="a", output_wrong_pred=True)
+            predictor = build_predictor(self.args, self.model, self.tokenizer, self.symbols, logger)
+            predictor.translate(data_iter, 'best', have_gold=False, info="{} With Generated Response".format(best_model.split("/")[-1]))
+
+
+        if level >= 3:
+            logger.info('Test on final model (stage-3)')
+            best_model = os.path.join(self.args.savepath, 'best_model.pt')
+            ckpt = torch.load(best_model, map_location=lambda storage, loc: storage)['model']
+            #ckpt['classifier.pooler.conv.lin.weight'] = ckpt['classifier.pooler.conv.weight']
+            try:
+                self.model.load_state_dict(ckpt)
+            except:
+                mismatch = self.model.load_state_dict(ckpt, strict=False)
+                print(mismatch)
+                logger.info('[Warning] The keys in state dict do not strictly match')
+
+            # Test without generated response
+            trainer.testing(data_iter, tokenizer=self.tokenizer, gen_flag=False, info="{}".format(best_model.split("/")[-1]), write_type="a")
+
+            # Test with generated response
+            _, wrongs_after = trainer.testing(data_iter, tokenizer=self.tokenizer, gen_flag=True, info="{} With Generated Response".format(best_model.split("/")[-1]), write_type="a", output_wrong_pred=True)
+            predictor = build_predictor(self.args, self.model, self.tokenizer, self.symbols, logger)
+            predictor.translate(data_iter, 'best', have_gold=False, info="{} With Generated Response".format(best_model.split("/")[-1]))
+
+            # Find the data that are successfully attack and fixed
+            fixed = []
+            for i in wrongs_before:
+                if i not in wrongs_after:
+                    fixed.append(str(i))
+
+            wrongs_before = [str(i) for i in wrongs_before]
+            with open(os.path.join(self.args.savepath, "id_fixed.txt"), "w") as f:
+                f.write("\n".join(fixed))
+
+            with open(os.path.join(self.args.savepath, "id_attack_success.txt"), "w") as f:
+                f.write("\n".join(wrongs_before))
+

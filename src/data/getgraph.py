@@ -8,6 +8,7 @@ import sys
 import argparse
 from nltk.tokenize import TweetTokenizer
 import preprocessor as pre
+import pandas as pd
 
 cwd=os.getcwd()
 
@@ -109,6 +110,7 @@ def constructMat_txt(tree):
         nodeC.text = text
         ## not root node ##
         if not indexP == 'None':
+            #nodeP = index2node[indexP]
             nodeP = index2node[int(indexP)]
             nodeC.parent = nodeP
             nodeP.children.append(nodeC)
@@ -141,31 +143,55 @@ def getfeature(x_word,x_index):
             x[i, np.array(x_index[i])] = np.array(x_word[i])
     return x
 
-def buildgraph(obj, format_, class_num, portion=''):
-    if format_ == 'idx_cnt':
-        treePath = os.path.join(cwd, '../dataset/' + obj + '/data.TD_RvNN.vol_5000.{}txt'.format(portion))
-        print("loading ", treePath)
-    elif format_ == 'txt_emb':
-        treePath = os.path.join(cwd, '../dataset/' + obj + '/data.text.{}txt'.format(portion))
-        print("loading ", treePath)
-    
-    treeDic = {}
-    f_tree = open(treePath, 'r')
-    for line in f_tree:
-        # maxL: max # of clildren nodes for a node; max_degree: max # of the tree depth
-        line = line.rstrip()
-        eid, indexP, indexC = line.split('\t')[0], line.split('\t')[1], int(line.split('\t')[2])
-        max_degree, maxL, Vec = int(line.split('\t')[3]), int(line.split('\t')[4]), line.split('\t')[-1]
+def buildgraph(obj, format_, class_num, portion='', texts=None, labels=None):
+    """
+    labels: lines with label and event id
+    """
+    if texts is None:
+        if format_ == 'idx_cnt':
+            treePath = os.path.join(cwd, '../dataset/' + obj + '/data.TD_RvNN.vol_5000.{}txt'.format(portion))
+            print("loading text from ", treePath)
+        elif format_ == 'txt_emb':
+            treePath = os.path.join(cwd, '../dataset/' + obj + '/data.text.{}txt'.format(portion))
+            print("loading text from", treePath)
+        texts = open(treePath)
+        
+        treeDic = {}
+        f_tree = open(treePath, 'r')
+        for line in f_tree:
+            # maxL: max # of clildren nodes for a node; max_degree: max # of the tree depth
+            line = line.rstrip()
 
-        if not treeDic.__contains__(eid):
-            # If the event id hasn't been contained
-            treeDic[eid] = {}
-        treeDic[eid][indexC] = {'parent': indexP, 'max_degree': max_degree, 'maxL': maxL, 'vec': Vec}
-    f_tree.close()
+            eid, indexP, indexC, max_degree, maxL = line.split("\t")[:5]
+            Vec = line.split("\t")[-1]
+            indexC = int(indexC)
+            max_degree = int(max_degree)
+            maxL = int(maxL)
+
+            if not treeDic.__contains__(eid):
+                # If the event id hasn't been contained
+                treeDic[eid] = {}
+            treeDic[eid][indexC] = {'parent': indexP, 'max_degree': max_degree, 'maxL': maxL, 'vec': Vec}
+        f_tree.close()
+    else:
+        treeDic = {}
+        for _, line in texts.iterrows():
+
+            eid, indexP, indexC, max_degree, maxL = line[:5]
+            Vec = line[len(line)-1]
+            eid = str(eid)
+            indexC = int(indexC)
+            max_degree = int(max_degree)
+            maxL = int(maxL)
+
+            if not treeDic.__contains__(eid):
+                # If the event id hasn't been contained
+                treeDic[eid] = {}
+            treeDic[eid][indexC] = {'parent': indexP, 'max_degree': max_degree, 'maxL': maxL, 'vec': Vec}
+
     print('tree number:', len(treeDic))
 
-    labelPath = os.path.join(cwd, "../dataset/" + obj + "/data.label.txt")
-
+    # Prepare class name by class number
     if class_num == 2:
         labelset_0, labelset_1 = ['non-rumours', 'non-rumor', 'true'], ['rumours', 'rumor', 'false']
         labelset_2, labelset_3 = [], []
@@ -174,16 +200,17 @@ def buildgraph(obj, format_, class_num, portion=''):
     elif class_num == 3:
         labelset_0, labelset_1, labelset_2, labelset_3 = ['true'], ['false'], ['unverified'], []
 
+    # Load the label file
+    if labels is None:
+        labels = pd.read_csv(os.path.join(cwd, "../dataset/" + obj + "/data.label.txt"), delimiter="\t", header=None)
+
     print("loading tree label")
     event, y = [], []
     l0 = l1 = l2 = l3 = 0
     labelDic = {}
 
-    f_label = open(labelPath, "r")
-    for line in open(labelPath):
-        line = line.rstrip()
-
-        label, eid = line.split('\t')[0], line.split('\t')[-1]
+    for _, line in labels.iterrows():
+        label, eid = line[0], str(line[1])
         label=label.lower()
         event.append(eid)
         if label in labelset_0:
@@ -198,7 +225,6 @@ def buildgraph(obj, format_, class_num, portion=''):
         if label in labelset_3:
             labelDic[eid]=3
             l3 += 1
-    f_label.close()
     print(len(labelDic))
     print(l1, l2)
 

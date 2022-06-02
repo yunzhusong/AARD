@@ -1,3 +1,4 @@
+import random
 import os, sys
 sys.path.append(os.getcwd())
 import argparse
@@ -21,6 +22,8 @@ import time
 
 from others.logging import init_logger, logger
 
+from for_demo.build_new_data import build_from_new_input
+
 def str2bool(v):
     if v.lower() in ('yes', 'true', 't', 'y', '1'):
         return True
@@ -41,6 +44,7 @@ def logged_args(args):
 def parse_args():
     parser = argparse.ArgumentParser(description='For Pheme dataset')
     parser.add_argument('-debug', action='store_true')
+    parser.add_argument('-for_demo', action='store_true')
     parser.add_argument('-savepath', type=str, help='where to save the attacker', default='../results/debug')
     parser.add_argument('-textgraph_dir', type=str, help='whether to specific text graph', default=None)
     parser.add_argument('-cache_path', type=str, help='where to save the condition files')
@@ -60,6 +64,7 @@ def parse_args():
     parser.add_argument("-label_num", type=int, default=2)
     parser.add_argument("-train_gen_from", default='../results/pretrain/XSUM_BertExtAbs/')
 
+    parser.add_argument("-inference_file", default=None, type=str)
     # Architecture setting
     parser.add_argument("-fold", default='', type=str, help='specify the data fold')
     parser.add_argument('-model_file', default='all', type=str, help='test which check point ot test all')
@@ -187,24 +192,38 @@ if __name__=='__main__':
             # Initial logger
             init_logger(args.log_file)
             logger.info(str(args))
-
             if quat == '100':
                 quat = ''
 
-            x_test, x_train = loadfoldlist(args.dataset_name, fold, quat)
-            num_train_tree = len(x_train)
-            x_val = x_test
-            tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+            if args.inference_file is None:
+                x_test, x_train = loadfoldlist(args.dataset_name, fold, quat)
+                x_val = x_test
+                text_df, label_df = None, None
+            else:
+                # Whether to use the on-time inference file
+                logger.info("We inference the model with new input line")
+                text_df, label_df = build_from_new_input(args.inference_file, args.dataset_dir)
+                x_test = label_df[1].tolist()
+                x_test = [str(i) for i in x_test] 
+                x_train = x_test
+                x_val = x_test
 
             ######################
             ### Train Detector ###
             ######################
             # Not drop the edges when training generator
-
             # Build model and train model
+            tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+
             trainer = RumorTrainer(args, args.savepath, tokenizer, iter, fold)
 
-            if args.early:
+            if args.for_demo:
+                treeDic = buildgraph(args.dataset_name, 'txt_emb', args.label_num, texts=text_df, labels=label_df)
+                test_list = loadBiTextData(args.dataset_name+'text', treeDic, x_test, tokenizer, data_path=None)
+                test_loader = DataLoader(test_list, batch_size=1, shuffle=False, num_workers=5)
+                trainer.inference_for_demo(test_loader, run_gen=args.test_gen or args.test_adv, level=1 if args.inference_file else 3)
+
+            elif args.early:
                 """ For early test, only change the graph data (different time interval)""" 
                 portions = args.early.split(',')
                 for port in portions:
@@ -223,8 +242,9 @@ if __name__=='__main__':
                 else:
                     data_path = None
 
+
                 # Build textgraph data
-                treeDic = buildgraph(args.dataset_name, 'txt_emb', args.label_num)
+                treeDic = buildgraph(args.dataset_name, 'txt_emb', args.label_num, texts=text_df, labels=label_df)
 
                 # Load textgraph
                 train_list = loadBiTextData(args.dataset_name+'text', treeDic, x_train, tokenizer, 0.2, 0.2)
@@ -242,7 +262,7 @@ if __name__=='__main__':
                 trainer.forward(train_loader, val_loader, test_loader)
 
             elif args.test_detector:
-                trainer.test_detector(test_loader, run_gen=args.test_gen)
+                trainer.test_detector(test_loader, run_gen=args.test_gen or args.test_adv)
 
             if args.train_adv:
                 args.train_gen = True
@@ -253,5 +273,4 @@ if __name__=='__main__':
 
             elif args.build_data:
                 trainer.build_data(test_loader)
-
 
