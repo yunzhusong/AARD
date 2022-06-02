@@ -4,7 +4,11 @@ import pdb
 #cwd=os.getcwd()
 cwd='../'
 
-################################### load tree#####################################
+#################
+### load tree ###
+#################
+
+
 def loadTree(dataname, port=None):
 
     if dataname == "Weibo":
@@ -36,7 +40,11 @@ def loadTree(dataname, port=None):
         print('tree no:', len(treeDic))
     return treeDic
 
-################################# load data ###################################
+#################
+### load data ###
+#################
+
+
 def loadData(dataname, treeDic,fold_x_train,fold_x_test,droprate):
     data_path=os.path.join(cwd, 'dataset', dataname+'graph')
     print("loading train set", )

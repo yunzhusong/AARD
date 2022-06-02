@@ -15,7 +15,6 @@ from others.logging import logger
 
 cwd = './'
 
-
 class CommentDataset(Dataset):
     def __init__(self, args, loader, dataname, device, tokenizer=None, tgt_str=False, reverse_label=False):
         """
@@ -51,11 +50,9 @@ class CommentDataset(Dataset):
         else:
             fields = [("src",field),("segs",field),("mask_src",field),("label",field),("edges",passfield),("node_batch",passfield),("id",field)]
 
-        #if args.test_gen or tgt_str:
-        #    fields.append(("tgt_str", 'string'))
-
         max_len = self.args.max_length
         max_len_gen = self.args.max_length_gen
+
         # Iterate every tree (batchsize should be 1)
         for i, tree in enumerate(loader):
             print('Loading Comment Dataset {}\r'.format(i), end='')
@@ -101,10 +98,6 @@ class CommentDataset(Dataset):
                     list_ = [src, segs, mask_src, label, new_edges, new_node_batch, id_, tgt, mask_tgt]
                 else:
                     list_ = [src, segs, mask_src, label, new_edges, new_node_batch, id_]
-
-                #if args.test_gen or tgt_str:
-                #    tgt_txt = ' '.join(tokenizer.convert_ids_to_tokens(target_x[target_x!=self.pad_vid])).replace(' ##', '')
-                #    list_.append(tgt_txt)
                 self.class_dict[label[0].item()] += 1
                 examples.append(MyExample.fromlist(list_, fields))
         if reverse_label:
@@ -168,7 +161,6 @@ class CommentDataset(Dataset):
         children = edges[1]
         parents[parents>children] = rootindex
         return torch.stack((parents, children), dim=0)
-
 
 
 class TreeDataset(Dataset):
@@ -295,7 +287,6 @@ class TreeDataset(Dataset):
         return torch.stack((parents, children), dim=0)
     
 
-
 class Iterator(Iterator):
 
     def __iter__(self):
@@ -344,6 +335,7 @@ class MyBatch(Batch):
         yield self._get_field_values(self.input_fields)
         #yield self._get_field_values(self.target_fields)
 
+
 class MyExample(Example):
     @classmethod
     def fromlist(cls, data, fields):
@@ -365,73 +357,13 @@ class MyExample(Example):
                     setattr(ex, name, field.preprocess(val))
         return ex
 
+
 class MyField(Field):
     def process(self, batch, device=None):
         output = torch.stack(batch).to(device)
         return output
 
+
 class PassField(Field):
     def process(self, batch, device=None):
         return batch
-'''
-    def numericalize(self, arr, device=None):
-        """Turn a batch of examples that use this field into a Variable.
-
-        If the field has include_lengths=True, a tensor of lengths will be
-        included in the return value.
-
-        Arguments:
-            arr (List[List[str]], or tuple of (List[List[str]], List[int])):
-                List of tokenized and padded examples, or tuple of List of
-                tokenized and padded examples and List of lengths of each
-                example if self.include_lengths is True.
-            device (str or torch.device): A string or instance of `torch.device`
-                specifying which device the Variables are going to be created on.
-                If left as default, the tensors will be created on cpu. Default: None.
-        """
-        if self.include_lengths and not isinstance(arr, tuple):
-            raise ValueError("Field has include_lengths set to True, but "
-                             "input data is not a tuple of "
-                             "(data batch, batch lengths).")
-        if isinstance(arr, tuple):
-            arr, lengths = arr
-            lengths = torch.tensor(lengths, dtype=self.dtype, device=device)
-
-        if self.use_vocab:
-            if self.sequential:
-                arr = [[self.vocab.stoi[x] for x in ex] for ex in arr]
-            else:
-                arr = [self.vocab.stoi[x] for x in arr]
-
-            if self.postprocessing is not None:
-                arr = self.postprocessing(arr, self.vocab)
-        else:
-            if self.dtype not in self.dtypes:
-                raise ValueError(
-                    "Specified Field dtype {} can not be used with "
-                    "use_vocab=False because we do not know how to numericalize it. "
-                    "Please raise an issue at "
-                    "https://github.com/pytorch/text/issues".format(self.dtype))
-            numericalization_func = self.dtypes[self.dtype]
-            # It doesn't make sense to explicitly coerce to a numeric type if
-            # the data is sequential, since it's unclear how to coerce padding tokens
-            # to a numeric type.
-            if not self.sequential:
-                arr = [numericalization_func(x) if isinstance(x, str)
-                       else x for x in arr]
-            if self.postprocessing is not None:
-                arr = self.postprocessing(arr, None)
-        try:
-            var = torch.tensor(arr, dtype=self.dtype, device=device)
-        except:
-            pdb.set_trace()
-
-        if self.sequential and not self.batch_first:
-            var.t_()
-        if self.sequential:
-            var = var.contiguous()
-
-        if self.include_lengths:
-            return var, lengths
-        return var
-'''

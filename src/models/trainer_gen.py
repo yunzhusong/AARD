@@ -1,6 +1,5 @@
 import os, sys
 sys.path.append(os.getcwd())
-#sys.path.insert(0, './pretrain')
 import argparse
 import time
 import json
@@ -13,9 +12,7 @@ import numpy as np
 from eval.evaluate import *
 from data.loader import CommentDataset, TreeDataset, Iterator
 from torchtext.data import BucketIterator
-#from utils import cal_attacker_loss3
 
-#from detector import RumorDetector
 from models.model import RumorDetector, build_optim_bert, build_optim_dec, build_optim
 from models.trainer import build_trainer
 from models.predictor import build_predictor
@@ -32,7 +29,7 @@ model_flags = ['hidden_size', 'ff_size', 'heads', 'emb_size', 'enc_layers', 'enc
                'dec_layers', 'dec_hidden_size', 'dec_ff_size', 'encoder', 'ff_actv', 'use_interval']
 
 class RumorTrainer(object):
-    def __init__(self, args, savepath, tokenizer=None, iter=0, fold=0, wandb=None):
+    def __init__(self, args, savepath, tokenizer=None, iter=0, fold=0):
         super(RumorTrainer)
         self.args = args
         self.fold = args.fold
@@ -45,12 +42,7 @@ class RumorTrainer(object):
         self.device = 'cuda:{}'.format(self.args.visible_gpus)
         self.maxepoch = args.train_epoch
         self.bs = args.batch_size
-        self.wandb = wandb
 
-        #if not self.args.run_exp:
-        #    # Log information into a txt file
-        #    init_logger(args.log_file)
-        #    logger.info(str(args))
         # Specify random seed for reproduce
         torch.manual_seed(args.seed)
         random.seed(args.seed)
@@ -66,13 +58,12 @@ class RumorTrainer(object):
         else:
             checkpoint_gen = None
 
-
-        # 3. Build model
+        # 2. Build model
         self.symbols = {'BOS': tokenizer.vocab['[unused0]'], 'EOS': tokenizer.vocab['[unused1]'],\
                        'PAD': tokenizer.vocab['[PAD]'], 'EOQ': tokenizer.vocab['[unused2]']}
         self.model = RumorDetector(args, self.device, self.symbols, checkpoint_gen=checkpoint_gen)
 
-        # 4. Set up optimizer, can optimize encoder(bert) and decoder seperately
+        # 3. Set up optimizer, can optimize encoder(bert) and decoder seperately
         if (args.sep_optim):
             checkpoint=None
             optim_bert = build_optim_bert(args, self.model, checkpoint)
@@ -81,12 +72,10 @@ class RumorTrainer(object):
         else:
             self.optim = [build_optim(args, self.model, checkpoint)]
 
-
     def forward(self, train_loader, val_loader, test_loader, maxepoch=None):
         """ Normal training process """
 
         # Build data iterator for generator (One node on the tree is converted to one data)
-        #train = TreeDataset(self.args, train_loader, self.dataname, self.device, self.tokenizer)
         train = CommentDataset(self.args, train_loader, self.dataname, self.device, self.tokenizer)
         
         sample_per_cls = None
@@ -95,13 +84,12 @@ class RumorTrainer(object):
         train_iter = BucketIterator(train, sort_key=lambda x: len(x.src),
             sort_within_batch=False, batch_size=self.bs, device=self.device)
 
-        #val = TreeDataset(self.args, val_loader, self.dataname, self.device, self.tokenizer)
         val = CommentDataset(self.args, val_loader, self.dataname, self.device, self.tokenizer)
         val_iter = BucketIterator(val, sort_key=lambda x: len(x.src),
-            sort_within_batch=False, batch_size=96, device=self.device)
+            sort_within_batch=False, batch_size=self.bs, device=self.device)
 
         test = TreeDataset(self.args, test_loader, self.dataname, self.device, self.tokenizer)
-        test_iter = Iterator(test, train=False, device=self.device, batch_size=96,
+        test_iter = Iterator(test, train=False, device=self.device, batch_size=self.bs,
             sort_key=lambda x: len(x.src), sort_within_batch=False)
 
         # Define trainer
@@ -112,7 +100,7 @@ class RumorTrainer(object):
         else:
             train_loss = abs_loss(self.args.label_num, self.maxepoch, self.device, True, sample_per_cls = sample_per_cls)
 
-        trainer = build_trainer(self.args, self.model, self.optim, train_loss, wandb=self.wandb)
+        trainer = build_trainer(self.args, self.model, self.optim, train_loss)
 
         # Start training
         best_loss = 10
@@ -148,11 +136,6 @@ class RumorTrainer(object):
             #if stop_count==5:
             #    break
 
-
-
-    #############################
-    ##  Adversarial training   ## 
-    #############################
     def train_adv(self, train_loader, val_loader, test_loader):
         """ Adversarially training process"""
         ## Step1. Train detector and generator
@@ -176,14 +159,14 @@ class RumorTrainer(object):
             train_iter, val_iter = BucketIterator.splits((train, val), sort_key=lambda x: len(x.src),
                 sort_within_batch=False, batch_size=self.bs, device=self.device) # 3906, 977
             test = TreeDataset(self.args, test_loader, self.dataname, self.device, self.tokenizer)
-            test_iter = Iterator(test, train=False, device=self.device, batch_size=len(test),
+            test_iter = Iterator(test, train=False, device=self.device, batch_size=self.bs,
                 sort_key=lambda x: len(x.src), sort_within_batch=False)
 
             # Define trainer
             train_loss = abs_loss(self.args.label_num, self.maxepoch, self.device, True,
                     self.args.train_gen ,self.model.generator, self.symbols,
                     self.model.vocab_size, self.args.label_smoothing)
-            trainer = build_trainer(self.args, self.model, self.optim, train_loss, wandb=self.wandb)
+            trainer = build_trainer(self.args, self.model, self.optim, train_loss)
 
             tot_train_steps = self.maxepoch * len(train_iter)
             test_stats = trainer.testing(test_iter, -1, gen_flag=True)
@@ -227,7 +210,7 @@ class RumorTrainer(object):
         train_iter, val_iter = BucketIterator.splits((train, val), sort_key=lambda x: len(x.src),
             sort_within_batch=False, batch_size=self.bs, device=self.device) # 3906, 977
         test = TreeDataset(self.args, test_loader, self.dataname, self.device, self.tokenizer)
-        test_iter = Iterator(test, train=False, device=self.device, batch_size=len(test),
+        test_iter = Iterator(test, train=False, device=self.device, batch_size=self.bs,
             sort_key=lambda x: len(x.src), sort_within_batch=False)
 
         # Load checkpoint
@@ -248,7 +231,7 @@ class RumorTrainer(object):
                 False ,self.model.generator, self.symbols,
                 self.model.vocab_size, self.args.label_smoothing)
 
-        trainer = build_trainer(self.args, self.model, optim, train_loss, wandb=self.wandb)
+        trainer = build_trainer(self.args, self.model, optim, train_loss)
         test_stats = trainer.testing(test_iter, -1, gen_flag=False) # clean data
         test_stats = trainer.testing(test_iter, -1, gen_flag=True) # polluted data
 
@@ -277,17 +260,12 @@ class RumorTrainer(object):
             if stop_count == 3:
                 break
 
-
-
     def test_detector(self, loader, run_gen=False, portion='all'):
         """ Testing detector  """
-        #test = TreeDataset(self.args, loader, self.dataname, self.device, self.tokenizer)
-        test = CommentDataset(self.args, loader, self.dataname, self.device, self.tokenizer)
+        test = TreeDataset(self.args, loader, self.dataname, self.device, self.tokenizer)
+        #test = CommentDataset(self.args, loader, self.dataname, self.device, self.tokenizer)
 
-        #data_iter = Iterator(test, train=False, device=self.device, batch_size=len(test)//2,
-        #                     sort_key=lambda x: len(x.src),
-        #                     sort_within_batch=False)
-        data_iter = Iterator(test, train=False, device=self.device, batch_size=48,
+        data_iter = Iterator(test, train=False, device=self.device, batch_size=self.bs,
                              sort_key=lambda x: len(x.src),
                              sort_within_batch=False)
 
@@ -312,6 +290,8 @@ class RumorTrainer(object):
 
             test_stat = trainer.testing(data_iter, tokenizer=self.tokenizer)
             test_stat.write_results(os.path.join(self.args.savepath, 'result_test.csv'), 'test-'+portion, self.args.label_num)
+        else:
+            print(f"[Warning] {best_model} does not exist.")
 
         if run_gen:
             predictor = build_predictor(self.args, self.model, self.tokenizer, self.symbols, logger)
@@ -321,7 +301,7 @@ class RumorTrainer(object):
         """ Build polluted textgraph by adversarial trained generator"""
         print("Build Pollued data by adv model from {}".format(self.args.savepath))
         test = TreeDataset(self.args, loader, self.dataname, self.device, self.tokenizer)
-        data_iter = Iterator(test, train=False, device=self.device, batch_size=len(test),
+        data_iter = Iterator(test, train=False, device=self.device, batch_size=self.bs,
                              sort_key=lambda x: len(x.src),
                              sort_within_batch=False)
 
@@ -330,7 +310,6 @@ class RumorTrainer(object):
                                               loc: storage)['model'])
         predictor = build_predictor(self.args, self.model, self.tokenizer, self.symbols, logger)
         predictor.build(data_iter)
-
 
     def exp(self, loader, exp_pos=False):
         """ Testing detector  """
@@ -351,7 +330,6 @@ class RumorTrainer(object):
                 self.model.load_state_dict(torch.load(best_model, map_location=lambda storage, 
                                                   loc: storage)['model'], strict=True)
                 test_stat = trainer.exp_pos(data_iter)
-
 
     def inference_save_by_id(self, loader, cache_dir, model_file):
 
@@ -376,7 +354,6 @@ class RumorTrainer(object):
         os.makedirs(os.path.join(self.args.savepath, 'temp'), exist_ok=True)
         os.makedirs(os.path.join(self.args.savepath, 'temp_gold'), exist_ok=True)
         self.predictor.translate(data_iter, model_file, cal_rouge=False, save=False, save_by_id=True)
-
 
     def plot_feat(self, test_loader, cache_dir, model_file=''):
         from analysis.plot_feat_tsne import PlotTSNE

@@ -150,7 +150,8 @@ def buildgraph(obj, format_, class_num, portion=''):
         print("loading ", treePath)
     
     treeDic = {}
-    for line in open(treePath):
+    f_tree = open(treePath, 'r')
+    for line in f_tree:
         # maxL: max # of clildren nodes for a node; max_degree: max # of the tree depth
         line = line.rstrip()
         eid, indexP, indexC = line.split('\t')[0], line.split('\t')[1], int(line.split('\t')[2])
@@ -160,9 +161,11 @@ def buildgraph(obj, format_, class_num, portion=''):
             # If the event id hasn't been contained
             treeDic[eid] = {}
         treeDic[eid][indexC] = {'parent': indexP, 'max_degree': max_degree, 'maxL': maxL, 'vec': Vec}
+    f_tree.close()
     print('tree number:', len(treeDic))
 
     labelPath = os.path.join(cwd, "../dataset/" + obj + "/data.label.txt")
+
     if class_num == 2:
         labelset_0, labelset_1 = ['non-rumours', 'non-rumor', 'true'], ['rumours', 'rumor', 'false']
         labelset_2, labelset_3 = [], []
@@ -175,6 +178,8 @@ def buildgraph(obj, format_, class_num, portion=''):
     event, y = [], []
     l0 = l1 = l2 = l3 = 0
     labelDic = {}
+
+    f_label = open(labelPath, "r")
     for line in open(labelPath):
         line = line.rstrip()
 
@@ -193,6 +198,7 @@ def buildgraph(obj, format_, class_num, portion=''):
         if label in labelset_3:
             labelDic[eid]=3
             l3 += 1
+    f_label.close()
     print(len(labelDic))
     print(l1, l2)
 
@@ -202,8 +208,6 @@ def buildgraph(obj, format_, class_num, portion=''):
         print(os.path.join(cwd, '../dataset/'+obj+ 'textgraph'))
         os.makedirs(os.path.join(cwd, '../dataset/'+obj+ 'textgraph'), exist_ok=True)
 
-    #if portion != '':
-    #    portion = '.{}.'.format(portion)
     def loadEid(event, id, y, format_):
         if event is None:
             return None
@@ -215,18 +219,16 @@ def buildgraph(obj, format_, class_num, portion=''):
                 x_x = getfeature(x_word, x_index) # x_word: the occur times of words, x_index: the index of words
                 rootfeat, tree, x_x, rootindex, y = np.array(rootfeat), np.array(tree), np.array(x_x), np.array(
                 rootindex), np.array(y)
-                #np.savez( os.path.join(cwd, '../dataset/'+obj+portion+'graph/'+id+'.npz'), x=x_x,root=rootfeat,edgeindex=tree,rootindex=rootindex,y=y)
                 np.savez( os.path.join(cwd, '../dataset/'+obj+'graph/'+id+'.npz'), x=x_x,root=rootfeat,edgeindex=tree,rootindex=rootindex,y=y)
             elif format_ == 'txt_emb':
                 x_text, tree, root_text, rootindex = constructMat_txt(event) 
                 tree, rootindex, y = np.array(tree), np.array(rootindex), np.array(y)
-                #np.savez( os.path.join(cwd, '../dataset/'+obj+portion+'textgraph/'+id+'.npz'), x=x_text,root=root_text,edgeindex=tree,rootindex=rootindex,y=y)
                 np.savez( os.path.join(cwd, '../dataset/'+obj+'textgraph/'+id+'.npz'), x=x_text,root=root_text,edgeindex=tree,rootindex=rootindex,y=y)
             return None
 
     print("loading dataset", )
     Parallel(n_jobs=1, backend='threading')(delayed(loadEid)(treeDic[eid] if eid in treeDic else None,eid,labelDic[eid], format_) for eid in tqdm(event))
-    return
+    return treeDic
 
 if __name__ == '__main__':
     args = parse_args()

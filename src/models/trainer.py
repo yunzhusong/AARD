@@ -18,7 +18,7 @@ def _tally_parameters(model):
     return n_params
 
 
-def build_trainer(args, model, optims, loss, wandb=None):
+def build_trainer(args, model, optims, loss):
     """
     Simplify `Trainer` creation based on user `opt`s*
     Args:
@@ -42,13 +42,13 @@ def build_trainer(args, model, optims, loss, wandb=None):
     else:
         gpu_rank = 0
         n_gpu = 0
-    # For saving exp results (tensorboard and wandb)
+    # For saving exp results (tensorboard)
     writer = None
     if args.log_tensorboard:
         tensorboard_log_dir = args.savepath
         writer = SummaryWriter(tensorboard_log_dir, comment="Unmt")
     report_manager = ReportMgr(args.report_every, start_time=-1,
-                               writer=writer, wandb=wandb, label_num = args.label_num)
+                               writer=writer, label_num = args.label_num)
 
     trainer = Trainer(args, model, optims, loss, grad_accum_count, n_gpu, gpu_rank, report_manager)
 
@@ -86,7 +86,7 @@ class Trainer(object):
 
     def __init__(self,  args, model,  optims, loss,
                   grad_accum_count=1, n_gpu=1, gpu_rank=1,
-                  report_manager=None, wandb=None):
+                  report_manager=None):
         # Basic attributes.
         self.args = args
         self.save_checkpoint_epoch = args.save_checkpoint_epoch
@@ -101,7 +101,6 @@ class Trainer(object):
         self.epoch = 0
 
         assert grad_accum_count > 0
-
 
     def train(self, train_iter, train_steps, message=''):
         """
@@ -314,7 +313,6 @@ class Trainer(object):
             for o in self.optims:
                 o.step()
 
-
     def _save(self, step):
         real_model = self.model
         # real_generator = (self.generator.module
@@ -445,7 +443,6 @@ class Trainer(object):
             print('{:.4f}'.format(error))
             with open(pjoin(self.args.savepath, 'exp_pos.txt'), 'a') as f:
                 f.write('[test-pos],{:.4f},{:.4f},{:.4f}'.format(max_diff, diff, error))
-
 
     # NOTE: No Use
     def test(self, test_iter, step, cal_lead=False, cal_oracle=False):

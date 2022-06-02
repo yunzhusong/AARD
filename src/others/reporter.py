@@ -97,7 +97,7 @@ class ReportMgrBase(object):
 
 
 class ReportMgr(ReportMgrBase):
-    def __init__(self, report_every, start_time=-1., writer=None, wandb=None, label_num=2):
+    def __init__(self, report_every, start_time=-1., writer=None, label_num=2):
         """
         A report manager that writes statistics on standard output as well as
         (optionally) TensorBoard
@@ -109,36 +109,23 @@ class ReportMgr(ReportMgrBase):
         """
         super(ReportMgr, self).__init__(report_every, start_time)
         self.writer = writer
-        self.wandb = wandb
         self.label_num = label_num
 
     def maybe_log_tensorboard(self, stats, prefix, learning_rate, step_):
-        if self.wandb is not None or self.writer is not None:
+        if self.writer is not None:
             stats.log_tensorboard(
-                prefix, learning_rate, step_, self.writer, self.wandb, self.label_num)
+                prefix, learning_rate, step_, self.writer, self.label_num)
 
     def _report_training(self, step, num_steps, learning_rate,
                          report_stats):
         """
         See base class method `ReportMgrBase.report_training`.
         """
-
-        #report_stats.output(step, num_steps,
-        #                    learning_rate, self.start_time)
-
         # Log the progress using the number of batches on the x-axis.
         self.maybe_log_tensorboard(report_stats,
                                    "progress",
                                    learning_rate,
                                    step)
-        #print('--Total loss: {:.4f} [{}/{}]'
-        #      .format(report_stats.total_loss(), step, num_steps))
-        #print('--Detector xent: {:.4f}; {}'
-        #      .format(report_stats.det_xent(), report_stats.get_simple_message(self.label_num)))
-        #if report_stats.gen_acc()>0:
-        #    print('--Generator xent: {:4f}; acc: {:.4f}'
-        #          .format(report_stats.gen_xent(), report_stats.gen_acc()))
-
         report_stats = Statistics()
         return report_stats
 
@@ -387,33 +374,9 @@ class Statistics(object):
                    time.time() - start))
         sys.stdout.flush()
 
-    def log_tensorboard(self, prefix, learning_rate, step, writer, wandb, label_num) :
+    def log_tensorboard(self, prefix, learning_rate, step, writer, label_num) :
         """ display statistics to tensorboard """
         t = self.elapsed_time()
-        if wandb is not None:
-            #wandb.log({prefix + "/xent":self.xent()}, step)
-            #wandb.log({prefix + "/mse":self.mse()}, step)
-            #wandb.log({prefix + "/ppl":self.ppl()}, step)
-            #wandb.log({prefix + "/accuracy":self.accuracy()}, step)
-            #wandb.log({prefix + "/tgtper":self.n_words/t}, step)
-            #wandb.log({prefix + "/lr":learning_rate}, step)
-            if self.loss_gen!=0:
-                wandb.log({prefix + "/gen_xent":self.gen_xent()})
-                #wandb.log({prefix + "/gen_ppl":self.gen_ppl()})
-                wandb.log({prefix + "/gen_acc":self.gen_acc()})
-                #wandb.log({prefix + "/gen_tgtper":self.n_words/t})
-            wandb.log({prefix + "/lr":learning_rate})
-            wandb.log({prefix + "/det_xent":self.det_xent()})
-            wandb.log({prefix + "/det_acc":self.det_acc()})
-            wandb.log({prefix + "/det_p1":self.det_p1()})
-            wandb.log({prefix + "/det_r1":self.det_r1()})
-            wandb.log({prefix + "/det_f1":self.det_f1()})
-            wandb.log({prefix + "/det_p2":self.det_p2()})
-            wandb.log({prefix + "/det_r2":self.det_r2()})
-            wandb.log({prefix + "/det_f2":self.det_f2()})
-            wandb.log({predix + "/det_f3": self.avg(self.f3)})
-            wandb.log({predix + "/det_f4": self.avg(self.f4)})
-            wandb.log({prefix + "/loss":self.total_loss()})
 
         if writer is not None:
             if self.loss_gen!=0:

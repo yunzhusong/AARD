@@ -16,17 +16,14 @@ from torch_scatter import scatter_mean
 from torch.distributions.normal import Normal
 from data.process import *
 from data.rand5fold import *
-from data.utils import construct_tree_by_Ian
-from others.earlystopping import EarlyStopping
 from others.optimizers import Optimizer
 
 #from modelsmy.transformers import BertModel
 from models.model_decoder import TransformerDecoder
 from models.model_detector import GCNClassifier
 
-from transformers import BertConfig #, BertModel
+from transformers import BertConfig
 from models.mybert import MyBertModel
-from qiskit.quantum_info import shannon_entropy as E
 
 def build_optim(args, model, checkpoint=None):
     """ Build optimizer """
@@ -54,6 +51,7 @@ def build_optim(args, model, checkpoint=None):
     optim.set_parameters(list(model.named_parameters()))
 
     return optim
+
 
 def build_optim_bert(args, model, checkpoint):
     """ Build optimizer """
@@ -83,6 +81,7 @@ def build_optim_bert(args, model, checkpoint):
 
     return optim
 
+
 def build_optim_dec(args, model, checkpoint):
     """ Build optimizer """
     optim = Optimizer(
@@ -111,6 +110,7 @@ def build_optim_dec(args, model, checkpoint):
 
     return optim
 
+
 def get_generator(vocab_size, dec_hidden_size, device):
     gen_func = nn.LogSoftmax(dim=-1)
     generator = nn.Sequential(
@@ -119,6 +119,7 @@ def get_generator(vocab_size, dec_hidden_size, device):
     generator.to(device)
 
     return generator
+
 
 class Bert(nn.Module):
     def __init__(self, large, temp_dir, finetune=False):
@@ -150,6 +151,7 @@ class Bert(nn.Module):
         #    return top_vec[0]
         #else:
         #    return (top_vec[0], top_vec[2])
+
 
 class RumorDetector(nn.Module):
     def __init__(self, args, device, symbols=None, checkpoint=None, checkpoint_gen=None):
@@ -297,7 +299,6 @@ class RumorDetector(nn.Module):
             top_vec = self.bert(src, segs, mask_src)
             detector_logits = self.classifier(top_vec, edges, node_batch).logits
             return (detector_logits,)
-
 
     def exp_pos(self, src, segs, mask_src, weight, edges=None, node_batch=None, 
                 tgt=None, mask_tgt=None):

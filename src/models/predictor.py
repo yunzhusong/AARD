@@ -22,7 +22,6 @@ def build_predictor(args, model, tokenizer, symbols, logger=None):
     translator = Translator(args, model, tokenizer, symbols, global_scorer=scorer, logger=logger)
     return translator
 
-
 class Translator(object):
     """
     Uses a model to translate a batch of sentences.
@@ -178,7 +177,6 @@ class Translator(object):
 
         Parallel(n_jobs=1, backend='threading')(delayed(_build)(batch) for batch in tqdm(data_iter))
 
-
     def translate(self, data_iter, epoch, cal_rouge=False, save=True, save_by_id=False, have_gold=False):
 
         self.model.eval()
@@ -273,6 +271,7 @@ class Translator(object):
                     self.gold_out_file.flush()
                 #self.src_out_file.flush()
                 #self.ididx_out_file.flush()
+
         Parallel(n_jobs=1, backend='threading')(delayed(_translate)(batch) for batch in tqdm(data_iter))
 
 
@@ -591,7 +590,6 @@ class Translator(object):
                     dec_states.map_batch_fn(
                         lambda state, dim: state.index_select(dim, select_indices))
                     batch_index = batch_index.index_select(0, non_finished)
-
 
 class Translation(object):
     """

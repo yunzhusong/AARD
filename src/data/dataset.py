@@ -1,3 +1,5 @@
+""" For support load data functions in data/process.py
+"""
 import os
 import pdb
 import numpy as np
@@ -13,9 +15,11 @@ from data.utils import construct_depth_vector, zero
 import spacy
 nlp = spacy.load("en_core_web_sm", disable = ["parser", "tagger", "ner"])
 
+def collate_fn(data):
+    return data
+
 class GraphDataset(Dataset):
-    def __init__(self, fold_x, treeDic, lower=1, upper=100000, droprate=0,
-                 data_path=os.path.join('..','..', 'data', 'Weibograph')):
+    def __init__(self, fold_x, treeDic, lower=1, upper=100000, droprate=0, data_path=''):
         self.fold_x = list(filter(lambda id: id in treeDic and len(treeDic[id]) >= lower and len(treeDic[id]) <= upper, fold_x))
         self.treeDic = treeDic
         self.data_path = data_path
@@ -44,14 +48,10 @@ class GraphDataset(Dataset):
              y=torch.LongTensor([int(data['y'])]), root=torch.LongTensor(data['root']),
              rootindex=torch.LongTensor([int(data['rootindex'])]))
 
-def collate_fn(data):
-    return data
-
 class BiGraphTextDataset(Dataset):
-    def __init__(self, fold_x, treeDic, tokenizer, lower=1, upper=100000, tddroprate=0,budroprate=0,
-                 data_path=os.path.join('..','..', 'data', 'Weibograph')):
+    def __init__(self, fold_x, treeDic, tokenizer, lower=1, upper=100000, tddroprate=0,budroprate=0, data_path=''):
         """
-        BiGraphTextDataset is used to process the raw text data, 
+        BiGraphTextDataset is to process the raw text data, 
         and convert the raw text into the idx
         Be careful to the dropout control
         """
@@ -195,11 +195,8 @@ class BiGraphTextDataset(Dataset):
         #token_lst = DataLoader.clean_tokenized_text(token_lst)
         return token_lst
 
-    
-
 class BiGraphDataset(Dataset):
-    def __init__(self, fold_x, treeDic,lower=2, upper=100000, tddroprate=0,budroprate=0,
-                 data_path=os.path.join('..','..', 'data', 'Weibograph')):
+    def __init__(self, fold_x, treeDic,lower=2, upper=100000, tddroprate=0,budroprate=0, data_path=''):
         self.fold_x = list(filter(lambda id: id in treeDic and len(treeDic[id]) >= lower and len(treeDic[id]) <= upper, fold_x))
         self.treeDic = treeDic
         self.data_path = data_path
@@ -246,10 +243,8 @@ class BiGraphDataset(Dataset):
              num_edge=torch.LongTensor([num_edge]), rootindex=torch.LongTensor([int(data['rootindex'])]),
              depth=depth)
 
-
 class UdGraphDataset(Dataset):
-    def __init__(self, fold_x, treeDic,lower=2, upper=100000, droprate=0,
-                 data_path=os.path.join('..','..','data', 'Weibograph')):
+    def __init__(self, fold_x, treeDic,lower=2, upper=100000, droprate=0, data_path=''):
         self.fold_x = list(filter(lambda id: id in treeDic and len(treeDic[id]) >= lower and len(treeDic[id]) <= upper, fold_x))
         self.treeDic = treeDic
         self.data_path = data_path
