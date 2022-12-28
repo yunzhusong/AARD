@@ -5,6 +5,10 @@
 
 [[Paper](https://aclanthology.org/2021.findings-acl.118.pdf)][[Dataset](https://drive.google.com/drive/folders/1pi71FGwfHvkuzSPtLCWL6iky1MCzexZx?usp=sharing)]
 
+Note:
+1. The file `TD_RvNN.vol_5000.txt` in the Dataset is obtained from https://github.com/majingCUHK/Rumor_RvNN.
+---
+
 If you use any source code or dataset included in this repo, please cite this paper:
 ```
 @inproceedings{song2021adversary,
