@@ -32,7 +32,7 @@ Detailed env is included in ```requirement.txt```
 
 ### Dataset and Model Preparation
 
-1. We collect the user comments following Twitter's policy, and the processed dataset is available [here](https://drive.google.com/drive/folders/16gTXrGsQx3hcr-_sSdxFnjfdFw0mPCTp?usp=sharing). The dataset should be placed in ```./dataset/```
+1. We collect the user comments following Twitter's policy, and the processed dataset is available [here](https://drive.google.com/drive/folders/1pi71FGwfHvkuzSPtLCWL6iky1MCzexZx?usp=sharing). The dataset should be placed in ```./dataset/```
 2. To train the generator, we need the pretrained model, which can be downloaded [here](https://drive.google.com/file/d/1bu63m2YSGfaxA8r8sLGsx45vKix9Z0gK/view?usp=sharing)). The pretrained generation model should be placed in ```./results/pretrain/```
 
 The data preprocessing is followed [BiGAN](https://github.com/TianBian95/BiGCN). The raw datasets except the comments can be downloaded in [raw_pheme](https://figshare.com/articles/dataset/PHEME_dataset_of_rumours_and_non-rumours/4010619) provided by [Zubiagaet al., 2016](https://arxiv.org/abs/1610.07363) and [raw_twitter15_twitter16](https://www.dropbox.com/s/7ewzdrbelpmrnxu/rumdetect2017.zip?dl=0) provided by [Ma et al., 2017](https://www.aclweb.org/anthology/P17-1066/).
